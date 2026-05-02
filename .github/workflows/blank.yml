@@ -1,13 +1,14 @@
-name: Build Cross-Platform Maze Solver
+name: Cross-Platform Build and Release
 
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
+  # ==========================================
+  # JOB 1: Compile the apps for all 3 Operating Systems
+  # ==========================================
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -17,10 +18,13 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
+            ext: .zip
           - os: ubuntu-latest
             rid: linux-x64
+            ext: .tar.gz
           - os: macos-latest
             rid: osx-x64
+            ext: .tar.gz
 
     steps:
     - name: Checkout Code
@@ -34,11 +38,64 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
+    # Compile and stamp with the version number
     - name: Publish App
       run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:Version=1.0.${{ github.run_number }} -o ./publish_output
 
+    # Zip the outputs so they are easy to download (Windows uses zip, Mac/Linux use tar)
+    - name: Archive Release (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: vimtor/action-zip@v1.2
+      with:
+        files: ./publish_output/
+        dest: MazeSolver-${{ matrix.rid }}-v1.0.${{ github.run_number }}${{ matrix.ext }}
+
+    - name: Archive Release (Mac/Linux)
+      if: matrix.os != 'windows-latest'
+      run: tar -czvf MazeSolver-${{ matrix.rid }}-v1.0.${{ github.run_number }}${{ matrix.ext }} -C ./publish_output .
+
+    # Temporarily upload the zipped files to GitHub so Job 2 can grab them
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: MazeSolver-${{ matrix.rid }}-v1.0.${{ github.run_number }}
-        path: ./publish_output/
+        name: app-binaries-${{ matrix.rid }}
+        path: MazeSolver-${{ matrix.rid }}-v1.0.${{ github.run_number }}${{ matrix.ext }}
+
+
+  # ==========================================
+  # JOB 2: Create the GitHub Release
+  # ==========================================
+  release:
+    name: Publish to Releases Tab
+    needs: build # Crucial: This tells GitHub to wait until all 3 builds are 100% done!
+    runs-on: ubuntu-latest
+    
+    # We need permission to write to your repository's Releases tab
+    permissions:
+      contents: write 
+
+    steps:
+    # Download the 3 zipped files we made in Job 1
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+        pattern: app-binaries-*
+        merge-multiple: true
+
+    # Create the Release and attach the files!
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        name: Maze Solver Release v1.0.${{ github.run_number }}
+        body: |
+          🚀 Automatically generated release for version 1.0.${{ github.run_number }}.
+          
+          **Downloads available below:**
+          * Windows (.zip)
+          * macOS (.tar.gz)
+          * Linux (.tar.gz)
+        files: ./artifacts/*
+        draft: false
+        prerelease: false
