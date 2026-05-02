@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 namespace MazeSolver {
-    public class DfsSolver {
+    public class DfsSolver: IMazeSolver {
         private Stack < MazePoint > _stack;
         public HashSet < MazePoint > Visited {
             get;

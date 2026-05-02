@@ -1,62 +1,103 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="MazeSolver.MainWindow"
-        Title="Avalonia Maze Solver" Width="1000" Height="700">
+        Title="Maze Solver" Width="900" Height="650">
     
     <DockPanel>
-        <!-- Top Control Bar -->
-        <Border DockPanel.Dock="Top" Background="#2d2d2d" Padding="15">
-            <StackPanel Orientation="Horizontal" Spacing="15" VerticalAlignment="Center">
-                
-                <Button Name="GenerateBtn" Content="Generate Maze" Click="OnGenerateClick" Background="#4CAF50"/>
-                
-                <TextBlock Text="Difficulty (Size):" VerticalAlignment="Center" Foreground="White"/>
-                <Slider Name="DifficultySlider" Minimum="10" Maximum="100" Value="20" Width="120" 
-                        TickFrequency="1" IsSnapToTickEnabled="True"/>
-                
-                <!-- Algorithm Selection -->
-                <ComboBox Name="AlgorithmCombo" SelectedIndex="2" Width="150" Margin="0,15">
-                    <ComboBoxItem>BFS</ComboBoxItem>
-                    <ComboBoxItem>DFS</ComboBoxItem>
-                    <ComboBoxItem>Simultaneous</ComboBoxItem>
-                </ComboBox>
-                
-                <!-- Controls -->
-                <Button Name="StartBtn" Content="Start" Click="OnStartClick" Background="#4CAF50"/>
-                <Button Name="StopBtn" Content="Stop" Click="OnStopClick" Background="#F44336"/>
-                
-                <!-- Separated Timers -->
-                <TextBlock Name="TimerTextBfs" Text="BFS: 0.00s" VerticalAlignment="Center" 
-                           Foreground="Cyan" FontWeight="Bold" Margin="20,0,0,0"/>
-                
-                <TextBlock Name="TimerTextDfs" Text="DFS: 0.00s" VerticalAlignment="Center" 
-                           Foreground="Magenta" FontWeight="Bold" Margin="10,0,0,0"/>
-                           
-            </StackPanel>
-        </Border>
-
-        <!--(Split Screen) -->
-        <Grid ColumnDefinitions="*, Auto, *" Margin="10">
+        <Expander Background="#292929" DockPanel.Dock="Top" Header="Settings &amp; Controls" IsExpanded="True" FontWeight="Bold"
+                  HorizontalAlignment="Stretch" Foreground="White">
             
-            <!-- Left Grid (Named 'LeftMazeContainer' so we can change its span) -->
-            <DockPanel Name="LeftMazeContainer" Grid.Column="0" Margin="10">
-                <TextBlock Name="Maze1Title" Text="Algorithm 1" DockPanel.Dock="Top" 
-                           HorizontalAlignment="Center" FontWeight="Bold" Margin="0,0,0,10"/>
-                           
-                <UniformGrid Name="MazeGrid1" Background="Black"/>
-            </DockPanel>
+            <Border Padding="0" Background="#292929">
+                <StackPanel Orientation="Vertical" Spacing="10">
+                    
+                    <!-- ROW 1: Master Controls -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                        <Button Name="GenerateBtn" Content="Generate Maze" Click="OnGenerateClick" Background="#4CAF50"/>
+                        
+                        <TextBlock Text="Size:" VerticalAlignment="Center" Foreground="White"/>
+                        <Slider Name="DifficultySlider" Minimum="10" Maximum="100" Value="25" Width="150" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        
+                        <Button Name="StartBtn" Content="Start" Click="OnStartClick" Background="#4CAF50" Foreground="White"/>
+                        <Button Name="StopBtn" Content="Stop" Click="OnStopClick" Background="#F44336" Foreground="White"/>
+                    </StackPanel>
 
-            <!-- Draggable Divider  -->
-            <GridSplitter Name="MazeSplitter" Grid.Column="1" Width="5" Background="LightGray" CornerRadius="2" />
+                    <!-- ROW 2: Layout & Algorithm Selections -->
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                        <TextBlock Text="Layout:" VerticalAlignment="Center" Foreground="White"/>
+                        <ComboBox Name="LayoutCombo" SelectedIndex="1" SelectionChanged="OnLayoutChanged" Width="100">
+                            <ComboBoxItem>1 Grid</ComboBoxItem>
+                            <ComboBoxItem>2 Grids</ComboBoxItem>
+                            <ComboBoxItem>4 Grids</ComboBoxItem>
+                        </ComboBox>
+                        
+                        <TextBlock Text="|" VerticalAlignment="Center" Foreground="Gray" Margin="10,0"/>
 
-            <!-- Right Grid (Visible only in Simultaneous Mode, used for DFS) -->
-            <DockPanel Name="RightMazeContainer" Grid.Column="2" Margin="10" IsVisible="True">
-                <TextBlock Name="Maze2Title" Text="Algorithm 2" DockPanel.Dock="Top" 
-                           HorizontalAlignment="Center" FontWeight="Bold" Margin="0,0,0,10"/>
-                           
-                <UniformGrid Name="MazeGrid2" Background="Black"/>
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="Grid 1:" VerticalAlignment="Center" Foreground="#80FFFF" FontWeight="Bold"/>
+                            <ComboBox Name="Algo1" SelectedIndex="0" Width="100"><ComboBoxItem>BFS</ComboBoxItem><ComboBoxItem>DFS</ComboBoxItem><ComboBoxItem>Dijkstra</ComboBoxItem><ComboBoxItem>A* Search</ComboBoxItem></ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Name="PanelAlgo2" Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="Grid 2:" VerticalAlignment="Center" Foreground="#FF85FF" FontWeight="Bold"/>
+                            <ComboBox Name="Algo2" SelectedIndex="1" Width="100"><ComboBoxItem>BFS</ComboBoxItem><ComboBoxItem>DFS</ComboBoxItem><ComboBoxItem>Dijkstra</ComboBoxItem><ComboBoxItem>A* Search</ComboBoxItem></ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Name="PanelAlgo3" Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="Grid 3:" VerticalAlignment="Center" Foreground="#80FF80" FontWeight="Bold"/>
+                            <ComboBox Name="Algo3" SelectedIndex="2" Width="100"><ComboBoxItem>BFS</ComboBoxItem><ComboBoxItem>DFS</ComboBoxItem><ComboBoxItem>Dijkstra</ComboBoxItem><ComboBoxItem>A* Search</ComboBoxItem></ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Name="PanelAlgo4" Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="Grid 4:" VerticalAlignment="Center" Foreground="#C587FF" FontWeight="Bold"/>
+                            <ComboBox Name="Algo4" SelectedIndex="3" Width="100"><ComboBoxItem>BFS</ComboBoxItem><ComboBoxItem>DFS</ComboBoxItem><ComboBoxItem>Dijkstra</ComboBoxItem><ComboBoxItem>A* Search</ComboBoxItem></ComboBox>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- ROW 3: Independent Timers -->
+                    <StackPanel Orientation="Horizontal" Spacing="25" HorizontalAlignment="Center">
+                        <TextBlock Name="Timer1" Text="Grid 1: 0.0s" Foreground="#80FFFF" FontWeight="Bold"/>
+                        <TextBlock Name="Timer2" Text="Grid 2: 0.0s" Foreground="#FF85FF" FontWeight="Bold"/>
+                        <TextBlock Name="Timer3" Text="Grid 3: 0.0s" Foreground="#80FF80" FontWeight="Bold"/>
+                        <TextBlock Name="Timer4" Text="Grid 4: 0.0s" Foreground="#C587FF" FontWeight="Bold"/>
+                    </StackPanel>
+                    
+                </StackPanel>
+            </Border>
+            
+        </Expander>
+
+        <!-- Main Display Area -->
+        <UniformGrid Name="MasterGrid" Rows="2" Columns="2" Margin="5">
+            
+            <DockPanel Name="Container1" Margin="5">
+                <TextBlock Name="Title1" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="Cyan" Margin="0,0,0,5"/>
+                <Border Name="MazeBorder1" BorderBrush="#555555" BorderThickness="4" CornerRadius="2">
+                    <UniformGrid Name="MazeGrid1" Background="Black"/>
+                </Border>
             </DockPanel>
             
-        </Grid>
+            <DockPanel Name="Container2" Margin="5">
+                <TextBlock Name="Title2" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="Magenta" Margin="0,0,0,5"/>
+                <Border Name="MazeBorder2" BorderBrush="#555555" BorderThickness="4" CornerRadius="2">
+                    <UniformGrid Name="MazeGrid2" Background="Black"/>
+                </Border>
+            </DockPanel>
+            
+            <DockPanel Name="Container3" Margin="5">
+                <TextBlock Name="Title3" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="Lime" Margin="0,0,0,5"/>
+                <Border Name="MazeBorder3" BorderBrush="#555555" BorderThickness="4" CornerRadius="2">
+                    <UniformGrid Name="MazeGrid3" Background="Black"/>
+                </Border>
+            </DockPanel>
+            
+            <DockPanel Name="Container4" Margin="5">
+                <TextBlock Name="Title4" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="BlueViolet" Margin="0,0,0,5"/>
+                <Border Name="MazeBorder4" BorderBrush="#555555" BorderThickness="4" CornerRadius="2">
+                    <UniformGrid Name="MazeGrid4" Background="Black"/>
+                </Border>
+            </DockPanel>
+            
+        </UniformGrid>
+        
     </DockPanel>
 </Window>

@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -10,46 +12,133 @@ namespace MazeSolver {
     public partial class MainWindow: Window {
         private int _gridSize;
         private int[, ] _maze;
-        private Border[, ] _uiCells1;
-        private Border[, ] _uiCells2;
 
+        private Border[][, ] _uiCells = new Border[4][, ];
+        private IMazeSolver ? [] _solvers = new IMazeSolver ? [4];
+        private Stopwatch[] _stopwatches = {
+            new Stopwatch(),
+            new Stopwatch(),
+            new Stopwatch(),
+            new Stopwatch()
+        };
+
+        // UI References
+        private UniformGrid[] _mazeGrids;
+        private DockPanel[] _mazeContainers;
+        private Border[] _mazeBorders;
+        private TextBlock[] _timerTexts;
+        private TextBlock[] _titles;
+        private ComboBox[] _algoCombos;
+
+        private readonly ISolidColorBrush[] _pathColors = {
+            Brushes.Cyan,
+            Brushes.Magenta,
+            Brushes.Lime,
+            Brushes.BlueViolet
+        };
+        private readonly ISolidColorBrush[] _exploreColors = {
+            Brushes.LightBlue,
+            Brushes.LightCoral,
+            Brushes.LightGreen,
+            Brushes.LightGray
+        };
+        private readonly ISolidColorBrush _defaultBorderBrush = SolidColorBrush.Parse("#555555");
+
+        private int _activeGrids = 2;
         private DispatcherTimer _animationTimer;
-        private Stopwatch _stopwatchBfs = new Stopwatch();
-        private Stopwatch _stopwatchDfs = new Stopwatch();
-
-        // Algos
-        private BfsSolver ? _bfsSolver;
-        private DfsSolver ? _dfsSolver;
 
         public MainWindow() {
             InitializeComponent();
+
+            _mazeGrids = new [] {
+                MazeGrid1,
+                MazeGrid2,
+                MazeGrid3,
+                MazeGrid4
+            };
+            _mazeContainers = new [] {
+                Container1,
+                Container2,
+                Container3,
+                Container4
+            };
+            _mazeBorders = new [] {
+                MazeBorder1,
+                MazeBorder2,
+                MazeBorder3,
+                MazeBorder4
+            }; // Hooking up the borders
+            _timerTexts = new [] {
+                Timer1,
+                Timer2,
+                Timer3,
+                Timer4
+            };
+            _titles = new [] {
+                Title1,
+                Title2,
+                Title3,
+                Title4
+            };
+            _algoCombos = new [] {
+                Algo1,
+                Algo2,
+                Algo3,
+                Algo4
+            };
+
             _animationTimer = new DispatcherTimer {
-                Interval = TimeSpan.FromMilliseconds(3)
+                Interval = TimeSpan.FromMilliseconds(1)
             };
             _animationTimer.Tick += AnimationTimer_Tick;
+
             GenerateNewMaze();
+            UpdateLayoutMode();
         }
 
         private void OnGenerateClick(object ? sender, RoutedEventArgs e) => GenerateNewMaze();
         private void OnStopClick(object ? sender, RoutedEventArgs e) {
             _animationTimer.Stop();
-            _stopwatchBfs.Stop();
-            _stopwatchDfs.Stop();
+            foreach(var sw in _stopwatches) sw.Stop();
+        }
+
+        private void OnLayoutChanged(object ? sender, SelectionChangedEventArgs e) {
+            if (LayoutCombo == null) return;
+            UpdateLayoutMode();
+        }
+
+        private void UpdateLayoutMode() {
+            _activeGrids = LayoutCombo.SelectedIndex
+            switch {
+                0 => 1, 1 => 2, _ => 4
+            };
+
+            MasterGrid.Rows = _activeGrids <= 2 ? 1 : 2;
+            MasterGrid.Columns = _activeGrids == 1 ? 1 : 2;
+
+            for (int i = 0; i < 4; i++) {
+                bool active = i < _activeGrids;
+                _mazeContainers[i].IsVisible = active;
+                _timerTexts[i].IsVisible = active;
+
+                if (i == 1) PanelAlgo2.IsVisible = active;
+                if (i == 2) PanelAlgo3.IsVisible = active;
+                if (i == 3) PanelAlgo4.IsVisible = active;
+            }
         }
 
         private void GenerateNewMaze() {
             _animationTimer.Stop();
-            _stopwatchBfs.Reset();
-            _stopwatchDfs.Reset();
-
-            TimerTextBfs.Text = "BFS: 0.00s | 0 Steps";
-            TimerTextDfs.Text = "DFS: 0.00s | 0 Steps";
+            for (int i = 0; i < 4; i++) {
+                _stopwatches[i].Reset();
+                _mazeBorders[i].BorderBrush = _defaultBorderBrush; // Reset border color on new maze
+            }
 
             _gridSize = (int) DifficultySlider.Value;
-
             do {
                 GenerateRandomData();
             } while (!IsSolvable());
+
             DrawGrids();
         }
 
@@ -65,11 +154,11 @@ namespace MazeSolver {
         }
 
         private bool IsSolvable() {
-            var queue = new Queue < MazePoint > ();
+            var q = new Queue < MazePoint > ();
             var visited = new HashSet < MazePoint > ();
             var start = new MazePoint(0, 0);
 
-            queue.Enqueue(start);
+            q.Enqueue(start);
             visited.Add(start);
             MazePoint[] dirs = {
                 new MazePoint(0, -1),
@@ -78,15 +167,15 @@ namespace MazeSolver {
                 new MazePoint(1, 0)
             };
 
-            while (queue.Count > 0) {
-                var curr = queue.Dequeue();
+            while (q.Count > 0) {
+                var curr = q.Dequeue();
                 if (curr.X == _gridSize - 1 && curr.Y == _gridSize - 1) return true;
 
                 foreach(var d in dirs) {
                     MazePoint n = new MazePoint(curr.X + d.X, curr.Y + d.Y);
                     if (n.X >= 0 && n.X < _gridSize && n.Y >= 0 && n.Y < _gridSize && _maze[n.X, n.Y] == 0 && !visited.Contains(n)) {
                         visited.Add(n);
-                        queue.Enqueue(n);
+                        q.Enqueue(n);
                     }
                 }
             }
@@ -94,151 +183,123 @@ namespace MazeSolver {
         }
 
         private void DrawGrids() {
-            _uiCells1 = new Border[_gridSize, _gridSize];
-            _uiCells2 = new Border[_gridSize, _gridSize];
+            for (int i = 0; i < 4; i++) {
+                _uiCells[i] = new Border[_gridSize, _gridSize];
+                _mazeGrids[i].Rows = _gridSize;
+                _mazeGrids[i].Columns = _gridSize;
+                _mazeGrids[i].Children.Clear();
+            }
 
-            MazeGrid1.Rows = _gridSize;
-            MazeGrid1.Columns = _gridSize;
-            MazeGrid2.Rows = _gridSize;
-            MazeGrid2.Columns = _gridSize;
-            MazeGrid1.Children.Clear();
-            MazeGrid2.Children.Clear();
-
-            for (int y = 0; y < _gridSize; y++)
+            for (int y = 0; y < _gridSize; y++) {
                 for (int x = 0; x < _gridSize; x++) {
                     bool isWall = _maze[x, y] == 1;
                     var brush = isWall ? Brushes.DarkSlateGray : Brushes.White;
                     if (x == 0 && y == 0) brush = Brushes.Green;
                     if (x == _gridSize - 1 && y == _gridSize - 1) brush = Brushes.Red;
 
-                    var cell1 = new Border {
-                        Background = brush, BorderBrush = Brushes.Gray, BorderThickness = new Avalonia.Thickness(0.5)
-                    };
-                    var cell2 = new Border {
-                        Background = brush, BorderBrush = Brushes.Gray, BorderThickness = new Avalonia.Thickness(0.5)
-                    };
-
-                    _uiCells1[x, y] = cell1;
-                    _uiCells2[x, y] = cell2;
-                    MazeGrid1.Children.Add(cell1);
-                    MazeGrid2.Children.Add(cell2);
+                    for (int i = 0; i < 4; i++) {
+                        var cell = new Border {
+                            Background = brush, BorderBrush = Brushes.Gray, BorderThickness = new Avalonia.Thickness(0.5)
+                        };
+                        _uiCells[i][x, y] = cell;
+                        _mazeGrids[i].Children.Add(cell);
+                    }
                 }
+            }
         }
+
+        private IMazeSolver CreateSolver(int typeIndex, MazePoint start) => typeIndex
+        switch {
+            0 => new BfsSolver(start),
+                1 => new DfsSolver(start),
+                2 => new DijkstraSolver(start),
+                _ => new AStarSolver(start, _gridSize)
+        };
 
         private void OnStartClick(object ? sender, RoutedEventArgs e) {
             _animationTimer.Stop();
 
-            // Clear old paths
-            for (int y = 0; y < _gridSize; y++)
-                for (int x = 0; x < _gridSize; x++)
-                    if (_maze[x, y] == 0 && !(x == 0 && y == 0) && !(x == _gridSize - 1 && y == _gridSize - 1)) {
-                        _uiCells1[x, y].Background = Brushes.White;
-                        _uiCells2[x, y].Background = Brushes.White;
-                    }
+            for (int i = 0; i < _activeGrids; i++) {
+                _timerTexts[i].Text = $"Grid {i + 1}: 0.0s | 0 Steps";
+                _titles[i].Text = ((ComboBoxItem) _algoCombos[i].SelectedItem).Content.ToString();
 
-            MazePoint start = new MazePoint(0, 0);
-            int mode = AlgorithmCombo.SelectedIndex;
+                _solvers[i] = CreateSolver(_algoCombos[i].SelectedIndex, new MazePoint(0, 0));
+                _stopwatches[i].Restart();
 
-            _bfsSolver = null;
-            _dfsSolver = null;
-            _stopwatchBfs.Reset();
-            _stopwatchDfs.Reset();
+                _mazeBorders[i].BorderBrush = _defaultBorderBrush; // Reset border color on run start
 
-            if (mode == 0 || mode == 2) {
-                _bfsSolver = new BfsSolver(start);
-                _stopwatchBfs.Start();
-            }
-
-            if (mode == 1 || mode == 2) {
-                _dfsSolver = new DfsSolver(start);
-                _stopwatchDfs.Start();
-            }
-
-            // Adjust Layout
-            if (mode == 2) {
-                RightMazeContainer.IsVisible = true;
-                MazeSplitter.IsVisible = true;
-                Grid.SetColumnSpan(LeftMazeContainer, 1);
-                Maze1Title.Text = "BFS Visualization";
-                Maze2Title.Text = "DFS Visualization";
-                TimerTextBfs.IsVisible = true;
-                TimerTextDfs.IsVisible = true;
-            } else {
-                RightMazeContainer.IsVisible = false;
-                MazeSplitter.IsVisible = false;
-                Grid.SetColumnSpan(LeftMazeContainer, 3);
-                Maze1Title.Text = mode == 0 ? "BFS Visualization" : "DFS Visualization";
-                TimerTextBfs.IsVisible = mode == 0;
-                TimerTextDfs.IsVisible = mode == 1;
+                for (int y = 0; y < _gridSize; y++)
+                    for (int x = 0; x < _gridSize; x++)
+                        if (_maze[x, y] == 0 && !(x == 0 && y == 0) && !(x == _gridSize - 1 && y == _gridSize - 1))
+                            _uiCells[i][x, y].Background = Brushes.White;
             }
 
             _animationTimer.Start();
         }
 
         private void AnimationTimer_Tick(object ? sender, EventArgs e) {
-            int mode = AlgorithmCombo.SelectedIndex;
-            int dfsGridIndex = mode == 2 ? 2 : 1;
+            bool allDone = true;
 
-            // --- BFS STEP ---
-            if (_bfsSolver != null && !_bfsSolver.IsDone) {
-                TimerTextBfs.Text = $"BFS: {_stopwatchBfs.Elapsed.TotalSeconds:F2}s | {_bfsSolver.Steps} Steps";
+            for (int i = 0; i < _activeGrids; i++) {
+                if (_solvers[i] != null && !_solvers[i].IsDone) {
+                    allDone = false;
+                    _timerTexts[i].Text = $"{_titles[i].Text}: {_stopwatches[i].Elapsed.TotalSeconds:F2}s | {_solvers[i].Steps} Steps";
 
-                // Pass a callback to color the newly added neighbors yellow
-                MazePoint ? current = _bfsSolver.Step(_maze, _gridSize, neighbor => ColorCell(neighbor, Brushes.Yellow, 1));
+                    MazePoint ? current = _solvers[i].Step(_maze, _gridSize, neighbor => ColorCell(neighbor, Brushes.Yellow, i));
 
-                if (current.HasValue) {
-                    if (current.Value.X == _gridSize - 1 && current.Value.Y == _gridSize - 1) {
-                        DrawPath(current.Value, _bfsSolver.CameFrom, Brushes.Cyan, 1);
-                        _stopwatchBfs.Stop();
-                        TimerTextBfs.Text = $"BFS: {_stopwatchBfs.Elapsed.TotalSeconds:F2}s | {_bfsSolver.Steps} Steps (Done)";
+                    if (current.HasValue) {
+                        if (current.Value.X == _gridSize - 1 && current.Value.Y == _gridSize - 1) {
+                            var path = ReconstructPath(current.Value, _solvers[i].CameFrom);
+                            DrawFinalPath(path, _pathColors[i], i);
+
+                            // Algorithm finished successfully, paint the outer border!
+                            _mazeBorders[i].BorderBrush = _pathColors[i];
+
+                            _stopwatches[i].Stop();
+                            _timerTexts[i].Text = $"{_titles[i].Text}: {_stopwatches[i].Elapsed.TotalSeconds:F2}s | {_solvers[i].Steps} Steps | {CountTurns(path)} Turns";
+                        } else ColorCell(current.Value, _exploreColors[i], i);
                     } else {
-                        ColorCell(current.Value, Brushes.LightBlue, 1);
+                        _stopwatches[i].Stop();
+                        _timerTexts[i].Text += " (Failed)";
+                        _mazeBorders[i].BorderBrush = Brushes.Red; // Turn border red if it gets completely stuck/fails
                     }
-                } else {
-                    _stopwatchBfs.Stop();
-                    TimerTextBfs.Text = $"BFS: {_stopwatchBfs.Elapsed.TotalSeconds:F2}s | {_bfsSolver.Steps} Steps (No Path)";
                 }
             }
 
-            // --- DFS STEP ---
-            if (_dfsSolver != null && !_dfsSolver.IsDone) {
-                TimerTextDfs.Text = $"DFS: {_stopwatchDfs.Elapsed.TotalSeconds:F2}s | {_dfsSolver.Steps} Steps";
+            if (allDone) _animationTimer.Stop();
+        }
 
-                // Pass a callback to color the newly added neighbors orange
-                MazePoint ? current = _dfsSolver.Step(_maze, _gridSize, neighbor => ColorCell(neighbor, Brushes.Orange, dfsGridIndex));
-
-                if (current.HasValue) {
-                    if (current.Value.X == _gridSize - 1 && current.Value.Y == _gridSize - 1) {
-                        DrawPath(current.Value, _dfsSolver.CameFrom, Brushes.Magenta, dfsGridIndex);
-                        _stopwatchDfs.Stop();
-                        TimerTextDfs.Text = $"DFS: {_stopwatchDfs.Elapsed.TotalSeconds:F2}s | {_dfsSolver.Steps} Steps (Done)";
-                    } else {
-                        ColorCell(current.Value, Brushes.LightPink, dfsGridIndex);
-                    }
-                } else {
-                    _stopwatchDfs.Stop();
-                    TimerTextDfs.Text = $"DFS: {_stopwatchDfs.Elapsed.TotalSeconds:F2}s | {_dfsSolver.Steps} Steps (No Path)";
-                }
+        private List < MazePoint > ReconstructPath(MazePoint endNode, Dictionary < MazePoint, MazePoint > cameFrom) {
+            var path = new List < MazePoint > {
+                endNode
+            };
+            var current = endNode;
+            while (cameFrom.ContainsKey(current)) {
+                current = cameFrom[current];
+                path.Add(current);
             }
+            path.Reverse();
+            return path;
+        }
 
-            bool bfsFinished = _bfsSolver == null || _bfsSolver.IsDone;
-            bool dfsFinished = _dfsSolver == null || _dfsSolver.IsDone;
+        private int CountTurns(List < MazePoint > path) {
+            if (path == null || path.Count < 3) return 0;
+            int turns = 0;
+            for (int i = 2; i < path.Count; i++) {
+                int dx1 = path[i - 1].X - path[i - 2].X, dy1 = path[i - 1].Y - path[i - 2].Y;
+                int dx2 = path[i].X - path[i - 1].X, dy2 = path[i].Y - path[i - 1].Y;
+                if (dx1 != dx2 || dy1 != dy2) turns++;
+            }
+            return turns;
+        }
 
-            if (bfsFinished && dfsFinished) _animationTimer.Stop();
+        private void DrawFinalPath(List < MazePoint > path, ISolidColorBrush color, int gridIndex) {
+            foreach(var p in path) ColorCell(p, color, gridIndex);
         }
 
         private void ColorCell(MazePoint p, ISolidColorBrush brush, int gridIndex) {
             if ((p.X == 0 && p.Y == 0) || (p.X == _gridSize - 1 && p.Y == _gridSize - 1)) return;
-            if (gridIndex == 1) _uiCells1[p.X, p.Y].Background = brush;
-            else _uiCells2[p.X, p.Y].Background = brush;
-        }
-
-        private void DrawPath(MazePoint endNode, Dictionary < MazePoint, MazePoint > cameFrom, ISolidColorBrush pathColor, int gridIndex) {
-            MazePoint current = endNode;
-            while (cameFrom.ContainsKey(current)) {
-                current = cameFrom[current];
-                ColorCell(current, pathColor, gridIndex);
-            }
+            _uiCells[gridIndex][p.X, p.Y].Background = brush;
         }
     }
 }
