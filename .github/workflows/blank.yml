@@ -1,0 +1,44 @@
+name: Build Cross-Platform Maze Solver
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-x64
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x' 
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Publish App
+      run: dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:Version=1.0.${{ github.run_number }} -o ./publish_output
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: MazeSolver-${{ matrix.rid }}-v1.0.${{ github.run_number }}
+        path: ./publish_output/
