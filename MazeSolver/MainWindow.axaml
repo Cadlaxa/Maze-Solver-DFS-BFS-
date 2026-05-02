@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MazeSolver.MainWindow"
+        Title="Avalonia Maze Solver" Width="1000" Height="700">
+    
+    <DockPanel>
+        <!-- Top Control Bar -->
+        <Border DockPanel.Dock="Top" Background="#2d2d2d" Padding="15">
+            <StackPanel Orientation="Horizontal" Spacing="15" VerticalAlignment="Center">
+                
+                <Button Name="GenerateBtn" Content="Generate Maze" Click="OnGenerateClick" Background="#4CAF50"/>
+                
+                <TextBlock Text="Difficulty (Size):" VerticalAlignment="Center" Foreground="White"/>
+                <Slider Name="DifficultySlider" Minimum="10" Maximum="100" Value="20" Width="120" 
+                        TickFrequency="1" IsSnapToTickEnabled="True"/>
+                
+                <!-- Algorithm Selection -->
+                <ComboBox Name="AlgorithmCombo" SelectedIndex="2" Width="150" Margin="0,15">
+                    <ComboBoxItem>BFS</ComboBoxItem>
+                    <ComboBoxItem>DFS</ComboBoxItem>
+                    <ComboBoxItem>Simultaneous</ComboBoxItem>
+                </ComboBox>
+                
+                <!-- Controls -->
+                <Button Name="StartBtn" Content="Start" Click="OnStartClick" Background="#4CAF50"/>
+                <Button Name="StopBtn" Content="Stop" Click="OnStopClick" Background="#F44336"/>
+                
+                <!-- Separated Timers -->
+                <TextBlock Name="TimerTextBfs" Text="BFS: 0.00s" VerticalAlignment="Center" 
+                           Foreground="Cyan" FontWeight="Bold" Margin="20,0,0,0"/>
+                
+                <TextBlock Name="TimerTextDfs" Text="DFS: 0.00s" VerticalAlignment="Center" 
+                           Foreground="Magenta" FontWeight="Bold" Margin="10,0,0,0"/>
+                           
+            </StackPanel>
+        </Border>
+
+        <!--(Split Screen) -->
+        <Grid ColumnDefinitions="*, Auto, *" Margin="10">
+            
+            <!-- Left Grid (Named 'LeftMazeContainer' so we can change its span) -->
+            <DockPanel Name="LeftMazeContainer" Grid.Column="0" Margin="10">
+                <TextBlock Name="Maze1Title" Text="Algorithm 1" DockPanel.Dock="Top" 
+                           HorizontalAlignment="Center" FontWeight="Bold" Margin="0,0,0,10"/>
+                           
+                <UniformGrid Name="MazeGrid1" Background="Black"/>
+            </DockPanel>
+
+            <!-- Draggable Divider  -->
+            <GridSplitter Name="MazeSplitter" Grid.Column="1" Width="5" Background="LightGray" CornerRadius="2" />
+
+            <!-- Right Grid (Visible only in Simultaneous Mode, used for DFS) -->
+            <DockPanel Name="RightMazeContainer" Grid.Column="2" Margin="10" IsVisible="True">
+                <TextBlock Name="Maze2Title" Text="Algorithm 2" DockPanel.Dock="Top" 
+                           HorizontalAlignment="Center" FontWeight="Bold" Margin="0,0,0,10"/>
+                           
+                <UniformGrid Name="MazeGrid2" Background="Black"/>
+            </DockPanel>
+            
+        </Grid>
+    </DockPanel>
+</Window>
