@@ -7,6 +7,8 @@ using Avalonia.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MazeSolver {
     public partial class MainWindow: Window {
@@ -46,6 +48,52 @@ namespace MazeSolver {
 
         private int _activeGrids = 2;
         private DispatcherTimer _animationTimer;
+        private CancellationTokenSource? _cancelTokenSource;
+        private readonly string[][] _algoCodeSnippets = {
+            new[] { // 0: BFS
+                "while (queue.Count > 0) {", 
+                "    Node current = queue.Dequeue();", 
+                "    if (current == target)", "        return Path;", "", 
+                "    foreach (Node n in current.Neighbors) {", 
+                "        if (!visited.Contains(n)) {", 
+                "            visited.Add(n);", 
+                "            queue.Enqueue(n);", 
+                "        }", "    }", "}"
+            },
+            new[] { // 1: DFS
+                "while (stack.Count > 0) {", 
+                "    Node current = stack.Pop();", 
+                "    if (current == target)", "        return Path;", "", 
+                "    foreach (Node n in current.Neighbors) {", 
+                "        if (!visited.Contains(n)) {", 
+                "            visited.Add(n);", 
+                "            stack.Push(n);", 
+                "        }", "    }", "}"
+            },
+            new[] { // 2: Dijkstra
+                "while (pq.Count > 0) {", 
+                "    Node current = pq.Dequeue();", 
+                "    if (current == target)", "        return Path;", "", 
+                "    foreach (Node n in current.Neighbors) {", 
+                "        int newCost = cost[current] + 1;", 
+                "        if (newCost < cost[n]) {", 
+                "            cost[n] = newCost;", 
+                "            pq.Enqueue(n, newCost);", 
+                "        }", "    }", "}"
+            },
+            new[] { // 3: A* Search
+                "while (pq.Count > 0) {", 
+                "    Node current = pq.Dequeue();", 
+                "    if (current == target)", "        return Path;", "", 
+                "    foreach (Node n in current.Neighbors) {", 
+                "        int newCost = gScore[current] + 1;", 
+                "        if (newCost < gScore[n]) {", 
+                "            gScore[n] = newCost;", 
+                "            int fScore = newCost + Heuristic(n);", 
+                "            pq.Enqueue(n, fScore);", 
+                "        }", "    }", "}"
+            }
+        };
 
         public MainWindow() {
             InitializeComponent();
@@ -100,6 +148,7 @@ namespace MazeSolver {
         private void OnStopClick(object ? sender, RoutedEventArgs e) {
             _animationTimer.Stop();
             foreach(var sw in _stopwatches) sw.Stop();
+            _cancelTokenSource?.Cancel();
         }
 
         private void OnLayoutChanged(object ? sender, SelectionChangedEventArgs e) {
@@ -108,23 +157,31 @@ namespace MazeSolver {
         }
 
         private void UpdateLayoutMode() {
-            _activeGrids = LayoutCombo.SelectedIndex
-            switch {
-                0 => 1, 1 => 2, _ => 4
-            };
+            bool isExplainMode = LayoutCombo.SelectedIndex == 3;
+
+            // If Explain Mode, force 1 Grid. Otherwise, read the dropdown.
+            _activeGrids = isExplainMode ? 1 : (LayoutCombo.SelectedIndex
+                switch {
+                    0 => 1, 1 => 2, _ => 4
+                });
 
             MasterGrid.Rows = _activeGrids <= 2 ? 1 : 2;
             MasterGrid.Columns = _activeGrids == 1 ? 1 : 2;
+
+            MainSplitGrid.ColumnDefinitions[1].Width = isExplainMode ? new GridLength(380) : new GridLength(0);
+            CodeContainer.IsVisible = isExplainMode;
 
             for (int i = 0; i < 4; i++) {
                 bool active = i < _activeGrids;
                 _mazeContainers[i].IsVisible = active;
                 _timerTexts[i].IsVisible = active;
 
-                if (i == 1) PanelAlgo2.IsVisible = active;
-                if (i == 2) PanelAlgo3.IsVisible = active;
-                if (i == 3) PanelAlgo4.IsVisible = active;
+                if (i == 1) PanelAlgo2.IsVisible = active && !isExplainMode;
+                if (i == 2) PanelAlgo3.IsVisible = active && !isExplainMode;
+                if (i == 3) PanelAlgo4.IsVisible = active && !isExplainMode;
             }
+
+            if (isExplainMode) CodeViewer.ItemsSource = _algoCodeSnippets[Algo1.SelectedIndex];
         }
 
         private void GenerateNewMaze() {
@@ -218,6 +275,8 @@ namespace MazeSolver {
 
         private void OnStartClick(object ? sender, RoutedEventArgs e) {
             _animationTimer.Stop();
+            _cancelTokenSource?.Cancel();
+            _cancelTokenSource = new CancellationTokenSource();
 
             for (int i = 0; i < _activeGrids; i++) {
                 _timerTexts[i].Text = $"Grid {i + 1}: 0.0s | 0 Steps";
@@ -234,39 +293,94 @@ namespace MazeSolver {
                             _uiCells[i][x, y].Background = Brushes.White;
             }
 
+            if (LayoutCombo.SelectedIndex == 3) CodeViewer.ItemsSource = _algoCodeSnippets[Algo1.SelectedIndex];
             _animationTimer.Start();
         }
 
-        private void AnimationTimer_Tick(object ? sender, EventArgs e) {
-            bool allDone = true;
+        private async void AnimationTimer_Tick(object? sender, EventArgs e) {
+            _animationTimer.Stop(); 
+            
+            // 1. Grab the token so we can pass it to the delays
+            if (_cancelTokenSource == null) return;
+            var token = _cancelTokenSource.Token;
 
-            for (int i = 0; i < _activeGrids; i++) {
-                if (_solvers[i] != null && !_solvers[i].IsDone) {
-                    allDone = false;
-                    _timerTexts[i].Text = $"{_titles[i].Text}: {_stopwatches[i].Elapsed.TotalSeconds:F2}s | {_solvers[i].Steps} Steps";
+            try {
+                bool allDone = true;
+                bool isExplainMode = LayoutCombo.SelectedIndex == 3;
+                int delayMs = 300;
 
-                    MazePoint ? current = _solvers[i].Step(_maze, _gridSize, neighbor => ColorCell(neighbor, Brushes.Yellow, i));
+                for (int i = 0; i < _activeGrids; i++) {
+                    if (_solvers[i] != null && !_solvers[i].IsDone) {
+                        allDone = false;
+                        _timerTexts[i].Text = $"{_titles[i].Text}: {_stopwatches[i].Elapsed.TotalSeconds:F2}s | {_solvers[i].Steps} Steps";
 
-                    if (current.HasValue) {
-                        if (current.Value.X == _gridSize - 1 && current.Value.Y == _gridSize - 1) {
-                            var path = ReconstructPath(current.Value, _solvers[i].CameFrom);
-                            DrawFinalPath(path, _pathColors[i], i);
+                        // 2. Pass 'token' into EVERY Task.Delay
+                        if (isExplainMode && i == 0) {
+                            CodeViewer.SelectedIndex = 0; await Task.Delay(delayMs, token); // Highlight: while loop
+                            CodeViewer.SelectedIndex = 2; await Task.Delay(delayMs, token); // Highlight: Dequeue/Pop
+                            CodeViewer.SelectedIndex = 3; await Task.Delay(delayMs, token); // Highlight: Check target
+                        }
 
-                            // Algorithm finished successfully, paint the outer border!
-                            _mazeBorders[i].BorderBrush = _pathColors[i];
+                        MazePoint? current = _solvers[i].Step(_maze, _gridSize, neighbor => ColorCell(neighbor, Brushes.Yellow, i));
 
+                        if (current.HasValue) {
+                            bool isTarget = current.Value.X == _gridSize - 1 && current.Value.Y == _gridSize - 1;
+
+                            // --- EXPLAIN MODE: Bottom half of the loop ---
+                            if (isExplainMode && i == 0) {
+                                if (isTarget) {
+                                    CodeViewer.SelectedIndex = 4; await Task.Delay(delayMs, token); // Highlight: return Path;
+                                } else {
+                                    CodeViewer.SelectedIndex = 6; await Task.Delay(delayMs, token); // Highlight: foreach neighbor
+                                    
+                                    int algo = Algo1.SelectedIndex;
+                                    if (algo == 0 || algo == 1) { // BFS or DFS
+                                        CodeViewer.SelectedIndex = 8; await Task.Delay(delayMs, token);  // if (!visited)
+                                        CodeViewer.SelectedIndex = 10; await Task.Delay(delayMs, token); // visited.Add
+                                        CodeViewer.SelectedIndex = 11; await Task.Delay(delayMs, token); // queue.Enqueue
+                                    } 
+                                    else if (algo == 2) { // Dijkstra
+                                        CodeViewer.SelectedIndex = 8; await Task.Delay(delayMs, token);  // int newCost
+                                        CodeViewer.SelectedIndex = 9; await Task.Delay(delayMs, token);  // if (newCost < cost)
+                                        CodeViewer.SelectedIndex = 11; await Task.Delay(delayMs, token); // cost[n] = newCost
+                                        CodeViewer.SelectedIndex = 12; await Task.Delay(delayMs, token); // pq.Enqueue
+                                    } 
+                                    else { // A* Search
+                                        CodeViewer.SelectedIndex = 8; await Task.Delay(delayMs, token);  // int newCost
+                                        CodeViewer.SelectedIndex = 9; await Task.Delay(delayMs, token);  // if (newCost < gScore)
+                                        CodeViewer.SelectedIndex = 11; await Task.Delay(delayMs, token); // gScore[n] = newCost
+                                        CodeViewer.SelectedIndex = 12; await Task.Delay(delayMs, token); // fScore = ...
+                                        CodeViewer.SelectedIndex = 13; await Task.Delay(delayMs, token); // pq.Enqueue
+                                    }
+                                }
+                            }
+
+                            if (isTarget) {
+                                var path = ReconstructPath(current.Value, _solvers[i].CameFrom);
+                                DrawFinalPath(path, _pathColors[i], i);
+                                _mazeBorders[i].BorderBrush = _pathColors[i];
+
+                                _stopwatches[i].Stop();
+                                _timerTexts[i].Text = $"{_titles[i].Text}: {_stopwatches[i].Elapsed.TotalSeconds:F2}s | {_solvers[i].Steps} Steps | {CountTurns(path)} Turns";
+                            } else {
+                                ColorCell(current.Value, _exploreColors[i], i);
+                            }
+                        } else {
+                            if (isExplainMode && i == 0) CodeViewer.SelectedIndex = 0; 
+                            
                             _stopwatches[i].Stop();
-                            _timerTexts[i].Text = $"{_titles[i].Text}: {_stopwatches[i].Elapsed.TotalSeconds:F2}s | {_solvers[i].Steps} Steps | {CountTurns(path)} Turns";
-                        } else ColorCell(current.Value, _exploreColors[i], i);
-                    } else {
-                        _stopwatches[i].Stop();
-                        _timerTexts[i].Text += " (Failed)";
-                        _mazeBorders[i].BorderBrush = Brushes.Red; // Turn border red if it gets completely stuck/fails
+                            _timerTexts[i].Text += " (Failed)";
+                            _mazeBorders[i].BorderBrush = Brushes.Red; 
+                        }
                     }
                 }
-            }
 
-            if (allDone) _animationTimer.Stop();
+                if (!allDone) _animationTimer.Start();
+                
+            } 
+            catch (TaskCanceledException) {
+                return;
+            }
         }
 
         private List < MazePoint > ReconstructPath(MazePoint endNode, Dictionary < MazePoint, MazePoint > cameFrom) {

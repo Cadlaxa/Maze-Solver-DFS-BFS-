@@ -10,24 +10,23 @@
             <Border Padding="0" Background="#292929">
                 <StackPanel Orientation="Vertical" Spacing="10">
                     
-                    <!-- ROW 1: Master Controls -->
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
                         <Button Name="GenerateBtn" Content="Generate Maze" Click="OnGenerateClick" Background="#4CAF50"/>
                         
                         <TextBlock Text="Size:" VerticalAlignment="Center" Foreground="White"/>
                         <Slider Name="DifficultySlider" Minimum="10" Maximum="100" Value="25" Width="150" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                        
+                         
                         <Button Name="StartBtn" Content="Start" Click="OnStartClick" Background="#4CAF50" Foreground="White"/>
                         <Button Name="StopBtn" Content="Stop" Click="OnStopClick" Background="#F44336" Foreground="White"/>
                     </StackPanel>
 
-                    <!-- ROW 2: Layout & Algorithm Selections -->
                     <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
                         <TextBlock Text="Layout:" VerticalAlignment="Center" Foreground="White"/>
-                        <ComboBox Name="LayoutCombo" SelectedIndex="1" SelectionChanged="OnLayoutChanged" Width="100">
+                        <ComboBox Name="LayoutCombo" SelectedIndex="1" SelectionChanged="OnLayoutChanged" Width="120">
                             <ComboBoxItem>1 Grid</ComboBoxItem>
                             <ComboBoxItem>2 Grids</ComboBoxItem>
                             <ComboBoxItem>4 Grids</ComboBoxItem>
+                            <ComboBoxItem>Explain Mode</ComboBoxItem>
                         </ComboBox>
                         
                         <TextBlock Text="|" VerticalAlignment="Center" Foreground="Gray" Margin="10,0"/>
@@ -53,7 +52,6 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- ROW 3: Independent Timers -->
                     <StackPanel Orientation="Horizontal" Spacing="25" HorizontalAlignment="Center">
                         <TextBlock Name="Timer1" Text="Grid 1: 0.0s" Foreground="#80FFFF" FontWeight="Bold"/>
                         <TextBlock Name="Timer2" Text="Grid 2: 0.0s" Foreground="#FF85FF" FontWeight="Bold"/>
@@ -63,41 +61,34 @@
                     
                 </StackPanel>
             </Border>
-            
         </Expander>
 
-        <!-- Main Display Area -->
-        <UniformGrid Name="MasterGrid" Rows="2" Columns="2" Margin="5">
-            
-            <DockPanel Name="Container1" Margin="5">
-                <TextBlock Name="Title1" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="Cyan" Margin="0,0,0,5"/>
-                <Border Name="MazeBorder1" BorderBrush="#555555" BorderThickness="4" CornerRadius="2">
-                    <UniformGrid Name="MazeGrid1" Background="Black"/>
-                </Border>
+        <Grid Name="MainSplitGrid">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/> 
+            </Grid.ColumnDefinitions>
+
+            <UniformGrid Name="MasterGrid" Rows="2" Columns="2" Margin="15" Grid.Column="0">
+                <DockPanel Name="Container1" Margin="10"><TextBlock Name="Title1" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="#80FFFF" Margin="0,0,0,5"/><Border Name="MazeBorder1" BorderBrush="#555555" BorderThickness="4" CornerRadius="2"><UniformGrid Name="MazeGrid1" Background="Black"/></Border></DockPanel>
+                <DockPanel Name="Container2" Margin="10"><TextBlock Name="Title2" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="#FF85FF" Margin="0,0,0,5"/><Border Name="MazeBorder2" BorderBrush="#555555" BorderThickness="4" CornerRadius="2"><UniformGrid Name="MazeGrid2" Background="Black"/></Border></DockPanel>
+                <DockPanel Name="Container3" Margin="10"><TextBlock Name="Title3" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="#80FF80" Margin="0,0,0,5"/><Border Name="MazeBorder3" BorderBrush="#555555" BorderThickness="4" CornerRadius="2"><UniformGrid Name="MazeGrid3" Background="Black"/></Border></DockPanel>
+                <DockPanel Name="Container4" Margin="10"><TextBlock Name="Title4" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="#C587FF" Margin="0,0,0,5"/><Border Name="MazeBorder4" BorderBrush="#555555" BorderThickness="4" CornerRadius="2"><UniformGrid Name="MazeGrid4" Background="Black"/></Border></DockPanel>
+            </UniformGrid>
+
+            <DockPanel Name="CodeContainer" Grid.Column="1" Width="380" Margin="0,15,15,15" IsVisible="False">
+                <TextBlock Text="Live Code Execution" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="#4CAF50" Margin="0,0,0,10"/>
+                
+                <ListBox Name="CodeViewer" Background="#1e1e1e" Foreground="#9CDCFE" FontFamily="Consolas, Courier New, monospace" 
+                         BorderBrush="#555555" BorderThickness="4" CornerRadius="2" SelectionMode="Single" Padding="10">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#264F78"/>
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
             </DockPanel>
-            
-            <DockPanel Name="Container2" Margin="5">
-                <TextBlock Name="Title2" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="Magenta" Margin="0,0,0,5"/>
-                <Border Name="MazeBorder2" BorderBrush="#555555" BorderThickness="4" CornerRadius="2">
-                    <UniformGrid Name="MazeGrid2" Background="Black"/>
-                </Border>
-            </DockPanel>
-            
-            <DockPanel Name="Container3" Margin="5">
-                <TextBlock Name="Title3" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="Lime" Margin="0,0,0,5"/>
-                <Border Name="MazeBorder3" BorderBrush="#555555" BorderThickness="4" CornerRadius="2">
-                    <UniformGrid Name="MazeGrid3" Background="Black"/>
-                </Border>
-            </DockPanel>
-            
-            <DockPanel Name="Container4" Margin="5">
-                <TextBlock Name="Title4" DockPanel.Dock="Top" HorizontalAlignment="Center" FontWeight="Bold" Foreground="BlueViolet" Margin="0,0,0,5"/>
-                <Border Name="MazeBorder4" BorderBrush="#555555" BorderThickness="4" CornerRadius="2">
-                    <UniformGrid Name="MazeGrid4" Background="Black"/>
-                </Border>
-            </DockPanel>
-            
-        </UniformGrid>
+        </Grid>
         
     </DockPanel>
 </Window>
